@@ -500,7 +500,23 @@ async function initSupabase(){
 }
 async function fetchProducts(){ if(demoMode) return; const {data,error}=await sb.from("products").select("*").order("sort",{ascending:true}).order("created_at",{ascending:true}); if(error){console.error(error);return;} products=data||[]; renderShelves(); renderGrid(); }
 async function fetchSettings(){ if(demoMode) return; const {data,error}=await sb.from("settings").select("data").eq("id",1).maybeSingle(); if(error){console.error(error);return;} settings=normalizeSettings(data&&data.data); }
-async function saveProduct(p){
+async function loadVisits(){
+  const el=document.getElementById("visitCount");
+  if(demoMode||!sb){ el.style.display="none"; return; }
+  try{
+    let n;
+    if(!sessionStorage.getItem("counted")){
+      const {data}=await sb.rpc("bump_visits"); n=data;
+      sessionStorage.setItem("counted","1");
+    } else {
+      const {data}=await sb.from("visits").select("count").eq("id",1).maybeSingle();
+      n=data&&data.count;
+    }
+    if(isOwner()&&n!=null){ el.textContent="👁 "+Number(n).toLocaleString(); el.style.display="inline-flex"; }
+    else { el.style.display="none"; }
+  }catch(e){ el.style.display="none"; }
+}
+  async function saveProduct(p){
   const payload={price:p.price,category:p.category,condition:p.condition,status:p.status,location:p.location,tags:p.tags,images:p.images,image:(p.images&&p.images[0])||"",telegram:p.telegram,whatsapp:p.whatsapp,title:p.title,description:p.description};
   if(demoMode){ if(p.id){products=products.map(x=>x.id===p.id?{...x,...payload}:x);} else {payload.id="tmp"+Date.now();payload.sort=Date.now();payload.created_at=new Date().toISOString();products.push(payload);} products.sort((a,b)=>(a.sort||0)-(b.sort||0)); renderShelves(); renderGrid(); return; }
   if(p.id){ const {error}=await sb.from("products").update(payload).eq("id",p.id); if(error) throw error; }
